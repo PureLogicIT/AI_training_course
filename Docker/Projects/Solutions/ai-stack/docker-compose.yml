@@ -1,0 +1,171 @@
+# AI Stack - Local Development
+# Services: Ollama, Open WebUI, n8n, ChromaDB, PostgreSQL, Redis
+#
+# Usage:
+#   docker compose up -d
+#
+# Access:
+#   Open WebUI  → http://localhost:3000
+#   n8n         → http://localhost:5678
+#   ChromaDB    → http://localhost:8000
+#   Ollama API  → http://localhost:11434
+#
+# First-time setup:
+#   Pull a model: docker exec ollama ollama pull llama3.2
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Ollama — local LLM inference engine
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    # GPU support (NVIDIA) — remove the deploy block if you don't have a GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - ai-net
+
+  # ---------------------------------------------------------------------------
+  # Open WebUI — chat interface for Ollama (and OpenAI-compatible APIs)
+  # ---------------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    volumes:
+      - open_webui_data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_AUTH=true                        # set false to disable login for local-only use
+      - WEBUI_SECRET_KEY=change-me-in-production
+    depends_on:
+      - ollama
+    networks:
+      - ai-net
+
+  # ---------------------------------------------------------------------------
+  # ChromaDB — vector database for embeddings / RAG workflows
+  # ---------------------------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS_FILE=/chroma/auth          # optional auth
+      - ALLOW_RESET=true                                           # useful in dev; disable in prod
+    networks:
+      - ai-net
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — persistent relational store used by n8n (and optionally Open WebUI)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-aistack}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-aistack}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aistack}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-net
+
+  # ---------------------------------------------------------------------------
+  # Redis — caching layer and queue backend for n8n
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-net
+
+  # ---------------------------------------------------------------------------
+  # n8n — workflow automation (AI pipelines, webhooks, integrations)
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      # Database
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-aistack}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-aistack}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      # Queue / execution
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      # General
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-me-in-production}
+      - GENERIC_TIMEZONE=America/New_York
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-net
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  ollama_data:
+  open_webui_data:
+  chroma_data:
+  postgres_data:
+  redis_data:
+  n8n_data:
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  ai-net:
+    driver: bridge
