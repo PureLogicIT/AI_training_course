@@ -1,0 +1,21 @@
+# Exercise 3 — docker-compose.yml starter
+# TODO: Complete the two service definitions below.
+#
+# Service 1: ollama
+#   image: ollama/ollama:0.6.0
+#   ports: "11434:11434"
+#   volumes: ollama_data:/root/.ollama
+#
+# Service 2: app
+#   build: .  (uses the local Dockerfile)
+#   ports: "7860:7860"
+#   environment: OLLAMA_HOST=http://ollama:11434
+#   depends_on: [ollama]
+
+services:
+  # TODO: define the ollama service
+
+  # TODO: define the app service
+
+volumes:
+  ollama_data:

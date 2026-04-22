@@ -1,0 +1,48 @@
+version: "3.9"
+
+# TODO 16 — Define named volumes
+# Add two named volumes below:
+#   ollama_data: {}
+#   chroma_data: {}
+volumes:
+  # TODO: add ollama_data and chroma_data here
+  placeholder: {}   # remove this placeholder line when you add the real volumes
+
+services:
+
+  # TODO 17 — Complete the ollama service
+  ollama:
+    # TODO: set image to ollama/ollama:0.4.7
+    image: placeholder/placeholder:0.0.0
+    volumes:
+      # TODO: mount ollama_data volume to /root/.ollama
+      - placeholder:/placeholder
+    ports:
+      # TODO: expose port 11434
+      - "0:0"
+
+  # TODO 18 — Complete the chromadb service
+  chromadb:
+    # TODO: set image to chromadb/chroma:0.5.20
+    image: placeholder/placeholder:0.0.0
+    environment:
+      # TODO: set IS_PERSISTENT=TRUE
+      PLACEHOLDER: "PLACEHOLDER"
+    volumes:
+      # TODO: mount chroma_data volume to /chroma/chroma
+      - placeholder:/placeholder
+    ports:
+      # TODO: expose port 8000
+      - "0:0"
+
+  # TODO 19 — Complete the app service
+  app:
+    build: .
+    environment:
+      # TODO: set OLLAMA_BASE_URL, CHROMA_HOST, CHROMA_PORT
+      PLACEHOLDER: "PLACEHOLDER"
+    ports:
+      - "7860:7860"
+    depends_on:
+      # TODO: list ollama and chromadb as dependencies
+      - placeholder

@@ -1,0 +1,6 @@
+llama-index-core==0.14.20
+llama-index-llms-ollama==0.4.6
+llama-index-embeddings-ollama==0.4.0
+llama-index-readers-file==0.4.6
+gradio==5.29.0
+pypdf==5.4.0
